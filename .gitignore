@@ -1,0 +1,21 @@
+# runtime artifacts
+*.log
+upstream.txt
+launch.lock
+*.tmp
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+
+# editors / os
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# local config backups
+*.bak
+*backup*.json
