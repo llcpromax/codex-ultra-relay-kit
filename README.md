@@ -131,7 +131,23 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 
 **开机自启**：代理、启动器、守护进程三项都已注册，登录后自动生效。
 
-**使用 Ultra**：打开模型选择器，选择带 Ultra 档位的模型；把推理强度拉到最高（`xhigh` / `max`）即可，代理会在转发时改写为 `ultra`。
+**使用 Ultra**：打开模型选择器，选择带 Ultra 档位的模型，推理强度选 **Ultra**；如果选 `xhigh` / `max`，代理也会在转发时改写为 `ultra`。
+
+### VS Code 插件
+
+VS Code 的 Codex 插件和桌面端共用同一个账号门禁（Statsig `1186680773`），所以默认也会隐藏 Ultra。给插件打补丁：
+
+```powershell
+python scripts\patch-vscode-extension.py
+```
+
+然后在 VS Code 命令面板执行 `Developer: Reload Window`。补丁会修改当前最新 `openai.chatgpt-*` 扩展的 webview bundle，强制包含 Ultra 档位。
+
+注意：
+
+- 插件升级后补丁会被覆盖，需要重新运行一次；
+- 补丁只影响本地插件文件，不改账号或中转站；
+- 支持 Ultra 的模型同桌面端：6 Astra、6.1 Sol、6 Sol、6.1 Terra、5.6 Sol、5.6 Terra。
 
 **换中转站**：
 
