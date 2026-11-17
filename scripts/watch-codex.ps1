@@ -23,8 +23,7 @@ $lastRepair = (Get-Date).AddMinutes(-5)
 
 while ($true) {
     try {
-        $cfg = Get-Item $configPath -ErrorAction Stop
-        $stamp = "$($cfg.LastWriteTimeUtc.Ticks)-$($cfg.Length)"
+        $stamp = (Get-FileHash $configPath -Algorithm SHA256 -ErrorAction Stop).Hash
         if ($null -eq $configStamp) {
             $configStamp = $stamp
         }
@@ -34,8 +33,7 @@ while ($true) {
             Start-Process -FilePath 'powershell.exe' -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', $repair, '-Restart' -WindowStyle Hidden
             Start-Sleep -Milliseconds 1500
             try {
-                $cfg2 = Get-Item $configPath
-                $configStamp = "$($cfg2.LastWriteTimeUtc.Ticks)-$($cfg2.Length)"
+                $configStamp = (Get-FileHash $configPath -Algorithm SHA256).Hash
             }
             catch { $configStamp = $stamp }
         }

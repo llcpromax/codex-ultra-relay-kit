@@ -92,7 +92,8 @@ Write-Ok '自启项已注册：CodexRelayProxy / CodexUltraLauncher / CodexUltra
 # --- 5. 启动代理与守护 ---
 Write-Step '启动本地代理与守护进程'
 if (-not (Get-NetTCPConnection -LocalPort 8787 -State Listen -ErrorAction SilentlyContinue)) {
-    Start-Process -FilePath $pythonw -ArgumentList $proxyPath -WindowStyle Hidden
+    $pcmd = "`"$pythonw`" `"$proxyPath`""
+    Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{CommandLine=$pcmd} | Out-Null
     for ($i = 0; $i -lt 20; $i++) {
         Start-Sleep -Milliseconds 500
         if (Get-NetTCPConnection -LocalPort 8787 -State Listen -ErrorAction SilentlyContinue) { break }
@@ -108,7 +109,8 @@ else {
 $watcherRunning = Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" |
     Where-Object { $_.CommandLine -like '*watch-codex.ps1*' }
 if (-not $watcherRunning) {
-    Start-Process -FilePath 'powershell.exe' -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', $watcherPath -WindowStyle Hidden
+    $wcmd = "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$watcherPath`""
+    Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{CommandLine=$wcmd} | Out-Null
     Write-Ok '守护进程已启动'
 }
 else {

@@ -175,4 +175,17 @@ Log "inject: $resp"
 $ws.Dispose()
 Remove-Item $lock -Force -ErrorAction SilentlyContinue
 
+# --- 7. make sure the watcher is running (detached from any terminal) ---
+try {
+    $watcher = Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" |
+        Where-Object { $_.CommandLine -like '*watch-codex.ps1*' }
+    if (-not $watcher) {
+        $wpath = Join-Path $PSScriptRoot 'watch-codex.ps1'
+        $wcmd = "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$wpath`""
+        Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{CommandLine=$wcmd} | Out-Null
+        Log "started watcher"
+    }
+}
+catch { Log "watcher start failed: $($_.Exception.Message)" }
+
 Write-Output "ULTRA_LAUNCH_RESULT $resp"
