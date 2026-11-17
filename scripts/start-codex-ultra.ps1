@@ -181,7 +181,13 @@ try {
         Where-Object { $_.CommandLine -like '*watch-codex.ps1*' }
     if (-not $watcher) {
         $wpath = Join-Path $PSScriptRoot 'watch-codex.ps1'
-        $wcmd = "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$wpath`""
+        $wvbs = Join-Path $PSScriptRoot 'watch-codex-hidden.vbs'
+        if (Test-Path $wvbs) {
+            $wcmd = "wscript.exe `"$wvbs`""
+        }
+        else {
+            $wcmd = "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$wpath`""
+        }
         Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{CommandLine=$wcmd} | Out-Null
         Log "started watcher"
     }

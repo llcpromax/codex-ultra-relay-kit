@@ -82,11 +82,20 @@ Write-Step '注册开机自启项（HKCU Run）'
 $proxyPath = Join-Path $InstallDir 'proxy.py'
 $launcherPath = Join-Path $InstallDir 'start-codex-ultra.ps1'
 $watcherPath = Join-Path $InstallDir 'watch-codex.ps1'
+$watcherVbs = Join-Path $InstallDir 'watch-codex-hidden.vbs'
+
+$vbsWatcher = @"
+Option Explicit
+Dim sh
+Set sh = CreateObject("WScript.Shell")
+sh.Run "powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File ""$watcherPath""", 0, False
+"@
+Set-Content -Path $watcherVbs -Value $vbsWatcher -Encoding ASCII
 
 New-Item -Path $RunKey -Force | Out-Null
 Set-ItemProperty -Path $RunKey -Name 'CodexRelayProxy' -Value "`"$pythonw`" `"$proxyPath`""
 Set-ItemProperty -Path $RunKey -Name 'CodexUltraLauncher' -Value "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$launcherPath`""
-Set-ItemProperty -Path $RunKey -Name 'CodexUltraWatcher' -Value "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$watcherPath`""
+Set-ItemProperty -Path $RunKey -Name 'CodexUltraWatcher' -Value "wscript.exe `"$watcherVbs`""
 Write-Ok '自启项已注册：CodexRelayProxy / CodexUltraLauncher / CodexUltraWatcher'
 
 # --- 5. 启动代理与守护 ---
@@ -109,7 +118,7 @@ else {
 $watcherRunning = Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" |
     Where-Object { $_.CommandLine -like '*watch-codex.ps1*' }
 if (-not $watcherRunning) {
-    $wcmd = "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$watcherPath`""
+    $wcmd = "wscript.exe `"$watcherVbs`""
     Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{CommandLine=$wcmd} | Out-Null
     Write-Ok '守护进程已启动'
 }
