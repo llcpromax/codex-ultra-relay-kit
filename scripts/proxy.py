@@ -35,28 +35,10 @@ LISTEN_PORT = 8787
 _upstream_cache = {"mtime": None, "value": DEFAULT_UPSTREAM}
 _upstream_lock = threading.Lock()
 
-UPGRADE_FROM = {"xhigh", "max"}
-UPGRADE_TO = "ultra"
-UPGRADE_MODELS = {
-    "gpt-6-astra",
-    "gpt-6.1-sol",
-    "gpt-6.1-terra",
-    "gpt-6-sol",
-    "gpt-5.6-sol",
-    "gpt-5.6-terra",
-    "gpt-daybreak-blue-latest",
-    "gpt-daybreak-red-latest",
-}
-
-# UI entries that now use the GPT-6.2 family on the relay.
-MODEL_ALIASES = {
-    "gpt-6-astra": "gpt-6.2-astra",
-    "gpt-6-sol": "gpt-6.2-sol",
-}
-
-# GPT-6.2 has no "ultra"; use its highest level "max" for the top UI choices.
-MAX_EFFORT_MODELS = {"gpt-6.2-astra", "gpt-6.2-sol"}
-MAX_EFFORT_FROM = {"xhigh", "max", "ultra"}
+# The relay currently accepts up to "max" and rejects "ultra" for every model.
+# Keep supported levels as-is; only downgrade an explicit ultra to max.
+EFFORT_FALLBACK_FROM = {"ultra"}
+EFFORT_FALLBACK_TO = "max"
 
 BACKGROUND_MODELS = {"gpt-6-luna", "gpt-6.1-terra"}
 BACKGROUND_MARKERS = (
@@ -84,7 +66,7 @@ _last_main_model = read_default_model()
 _model_lock = threading.Lock()
 
 LOG_PATH = os.path.join(BASE_DIR, "proxy.log")
-PROXY_VERSION = "1.2.0-gpt62-max"
+PROXY_VERSION = "1.4.0-relay-max-only"
 _log_lock = threading.Lock()
 
 
@@ -188,28 +170,15 @@ def rewrite_request(body):
         with _model_lock:
             _last_main_model = model
 
-    # GPT-6.2 replaced the 6.0 entries in the UI; map after background routing.
-    final_model = data.get("model")
-    alias = MODEL_ALIASES.get(final_model)
-    if alias:
-        data["model"] = alias
-        info["model_rewritten"] = alias
-        final_model = alias
-        changed = True
-
+    # Use the model exactly as selected; only unsupported ultra is downgraded.
     reasoning = data.get("reasoning")
     if isinstance(reasoning, dict):
         original = reasoning.get("effort")
         info["effort"] = original
-        if final_model in MAX_EFFORT_MODELS and original in MAX_EFFORT_FROM and original != "max":
-            reasoning["effort"] = "max"
+        if original in EFFORT_FALLBACK_FROM:
+            reasoning["effort"] = EFFORT_FALLBACK_TO
             info["effort_rewritten"] = True
-            info["effort_target"] = "max"
-            changed = True
-        elif final_model in UPGRADE_MODELS and original in UPGRADE_FROM:
-            reasoning["effort"] = UPGRADE_TO
-            info["effort_rewritten"] = True
-            info["effort_target"] = UPGRADE_TO
+            info["effort_target"] = EFFORT_FALLBACK_TO
             changed = True
 
     if not changed:
@@ -259,7 +228,7 @@ class Handler(BaseHTTPRequestHandler):
             if info["model_rewritten"]:
                 notes.append(f"model {info['model']} -> {info['model_rewritten']}")
             if info["effort_rewritten"]:
-                notes.append(f"effort {info['effort']} -> {info['effort_target'] or UPGRADE_TO}")
+                notes.append(f"effort {info['effort']} -> {info['effort_target']}")
             if new_body is not decoded:
                 body = new_body
                 drop_encoding = decoded_ok

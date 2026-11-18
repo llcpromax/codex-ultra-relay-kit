@@ -75,6 +75,24 @@ try {
         Log "desktop section appended"
     }
 
+    # 2b) ensure the custom model catalog is configured
+    $catalogPath = Join-Path (Split-Path $ConfigPath -Parent) 'model-catalog-v2.json'
+    if (Test-Path $catalogPath) {
+        $catalogToml = $catalogPath.Replace('\', '/')
+        $catalogLine = 'model_catalog_json = "' + $catalogToml + '"'
+        if ($text -match '(?m)^\s*model_catalog_json\s*=') {
+            $newText = [regex]::Replace($text, '(?m)^\s*model_catalog_json\s*=.*$', $catalogLine)
+        }
+        else {
+            $newText = $catalogLine + "`r`n" + $text
+        }
+        if ($newText -ne $text) {
+            $text = $newText
+            $changedText = $true
+            Log "model catalog ensured"
+        }
+    }
+
     # 3) write the config only when something changed
     if ($changedText -and $Restart -and $wasRunning) {
         Log "stopping Codex to write config"

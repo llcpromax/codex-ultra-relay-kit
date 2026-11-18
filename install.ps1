@@ -40,6 +40,7 @@ Write-Step "安装到 $InstallDir"
 New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
 Copy-Item -Path (Join-Path $SourceDir '*.ps1') -Destination $InstallDir -Force
 Copy-Item -Path (Join-Path $SourceDir 'proxy.py') -Destination $InstallDir -Force
+Copy-Item -Path (Join-Path $SourceDir 'model-catalog-v2.json') -Destination (Join-Path $env:USERPROFILE '.codex\model-catalog-v2.json') -Force
 Write-Ok '脚本已复制'
 
 # --- 2. upstream.txt ---

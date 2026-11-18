@@ -56,7 +56,7 @@ Codex 桌面版（`OpenAI.Codex` MSIX）的模型选择器里是否出现 **Ultr
 | 部件 | 作用 |
 | --- | --- |
 | **门禁注入**（`start-codex-ultra.ps1`） | 用 `IApplicationActivationManager` 以 `--remote-debugging-port=9333` 启动 MSIX 应用，连接 CDP，等待 Statsig 初始化后注入门禁 `1186680773`，并用定时器每 5 秒保活，直到 Ultra 选项稳定出现在模型选择器。 |
-| **本地代理**（`proxy.py`） | 监听 `127.0.0.1:8787`，把 `xhigh` / `max` 改写为 `ultra`（仅对支持 ultra 的模型）；把后台任务请求路由到最后一个主模型。上游地址从 `upstream.txt` 动态读取，支持 `/v1` 这类基础路径。 |
+| **本地代理**（`proxy.py`） | 监听 `127.0.0.1:8787`，模型选择原样转发；仅把中转站不支持的 `ultra` 降级为 `max`；把后台任务请求路由到最后一个主模型。上游地址从 `upstream.txt` 动态读取，支持 `/v1` 这类基础路径。 |
 | **后台跟随** | 客户端生成标题 / 智能建议 / commit message 等后台请求使用的小模型，在你中转站可能不存在。代理识别请求中的提示词标记，把 `model` 换成最近一次主对话使用的模型。 |
 | **官方图标守护 + CC Switch 自动修复**（`watch-codex.ps1` + `repair-config.ps1`） | 每 2 秒检查：发现 ChatGPT 进程在跑但 9333 未监听 → 自动用启动器重启；发现 `config.toml` 被外部改写 → 重新抓取真实 `base_url` 存入 `upstream.txt`，把 `base_url` 改回本地代理并补上 `[desktop]` 的 Ultra 开关。 |
 
@@ -65,8 +65,8 @@ Codex 桌面版（`OpenAI.Codex` MSIX）的模型选择器里是否出现 **Ultr
 ## 功能列表
 
 - 一键安装 / 一键卸载，全程普通用户权限，无需管理员
-- Ultra 推理档位在模型选择器中可见、可用
-- `xhigh` / `max` → `ultra` 自动改写（仅对已知支持 ultra 的模型）
+- Ultra 推理档位在模型选择器中可见、可用（实际执行受中转站 effort 上限限制）
+- 模型选择原样保留；`ultra` → `max` 降级（当前中转站不支持 ultra）
 - 后台任务自动跟随主模型，避免小模型 404 / 报错
 - 上游地址动态读取（`upstream.txt`），改文件即换站，支持 `https://host/v1` 形式
 - 点官方图标启动时自动接管为 Ultra 实例（无感重启）
@@ -131,20 +131,24 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 
 **开机自启**：代理、启动器、守护进程三项都已注册，登录后自动生效。
 
-**使用 Ultra**：打开模型选择器，选择带 Ultra 档位的模型，推理强度选 **Ultra**；如果选 `xhigh` / `max`，代理也会在转发时改写为 `ultra`。
+**使用 Ultra**：打开模型选择器，选择模型，推理强度选 **Ultra** 或 **Max**。当前中转站只支持到 `max`，代理会把显式的 `ultra` 降级为 `max`，其余档位原样转发。
 
-### GPT-6.2
+### GPT-6.2 与自定义模型目录
 
-中转站已提供 `gpt-6.2-astra` 和 `gpt-6.2-sol`，但当前 Codex 客户端的模型目录里还没有 6.2，界面不会直接列出。代理默认做映射：
+Codex 客户端的模型选择器来自本地模型目录。仓库里的 `scripts/model-catalog-v2.json` 通过 `model_catalog_json` 注入，包含：
 
-- `gpt-6-astra` → `gpt-6.2-astra`
-- `gpt-6-sol` → `gpt-6.2-sol`
+- 6.2 Sol / 6.2 Astra
+- 6.1 Sol / 6 Astra / 6 Sol / 6 Luna / 6.1 Terra
+- 5.6 Sol / 5.6 Terra / 5.6 Luna / 5.5
 
-所以界面里仍然选 **6 Astra / 6 Sol**，实际请求走的是 6.2；6.1、5.6、Luna 等模型不受影响。
+因此界面里可以直接选 **6.2**，6/6.1 等原有模型也保持原样，不会被替换成 6.2。
 
-注意：6.2 **不支持 `ultra`**，只支持 `none/minimal/low/medium/high/xhigh/max`。代理会把 6.2 的 `xhigh` / `max` / `ultra` 统一改写成 **`max`**（6.2 的最高档），所以界面里选 **Ultra、Extra High 或 Max**，实际发给 6.2 的都是 `max`；显式发送 `ultra` 也不会再触发 400。
+注意：
 
-要关闭或修改映射，编辑 `proxy.py` 里的 `MODEL_ALIASES`。
+- 当前中转站只接受 `none/minimal/low/medium/high/xhigh/max`，**拒绝 `ultra`**；代理会把显式的 `ultra` 降级为 `max`，其余档位原样转发。界面里的 Ultra 档位仍然可选，实际会按中转站支持的顶档执行。
+- 客户端按 `model_catalog_json` 的**路径**缓存模型列表；修改目录内容后，把文件名改成新版本（如 `model-catalog-v3.json`）并同步 `config.toml`，才能让界面刷新。
+- 安装脚本会把目录放到 `~/.codex/model-catalog-v2.json`，并在 `config.toml` 写入 `model_catalog_json`。
+- 卸载或换回内置目录时，删除 `config.toml` 里的 `model_catalog_json` 这一行即可。
 
 ### VS Code 插件
 
