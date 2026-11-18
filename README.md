@@ -133,6 +133,19 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 
 **使用 Ultra**：打开模型选择器，选择带 Ultra 档位的模型，推理强度选 **Ultra**；如果选 `xhigh` / `max`，代理也会在转发时改写为 `ultra`。
 
+### GPT-6.2
+
+中转站已提供 `gpt-6.2-astra` 和 `gpt-6.2-sol`，但当前 Codex 客户端的模型目录里还没有 6.2，界面不会直接列出。代理默认做映射：
+
+- `gpt-6-astra` → `gpt-6.2-astra`
+- `gpt-6-sol` → `gpt-6.2-sol`
+
+所以界面里仍然选 **6 Astra / 6 Sol**，实际请求走的是 6.2；6.1、5.6、Luna 等模型不受影响。
+
+注意：6.2 **不支持 `ultra`**，只支持 `none/minimal/low/medium/high/xhigh/max`。代理对 6.2 不会做 `xhigh/max → ultra` 改写；界面里的 Ultra 发给 6.2 时实际是 `xhigh`，可以正常使用。想在 6.2 上用最高档，可在界面选 **Max**。
+
+要关闭或修改映射，编辑 `proxy.py` 里的 `MODEL_ALIASES`。
+
 ### VS Code 插件
 
 VS Code 的 Codex 插件和桌面端共用同一个账号门禁（Statsig `1186680773`），所以默认也会隐藏 Ultra。给插件打补丁：

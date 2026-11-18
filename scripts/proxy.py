@@ -48,6 +48,12 @@ UPGRADE_MODELS = {
     "gpt-daybreak-red-latest",
 }
 
+# UI entries that now use the GPT-6.2 family on the relay.
+MODEL_ALIASES = {
+    "gpt-6-astra": "gpt-6.2-astra",
+    "gpt-6-sol": "gpt-6.2-sol",
+}
+
 BACKGROUND_MODELS = {"gpt-6-luna", "gpt-6.1-terra"}
 BACKGROUND_MARKERS = (
     "Generate a concise UI title",
@@ -74,7 +80,7 @@ _last_main_model = read_default_model()
 _model_lock = threading.Lock()
 
 LOG_PATH = os.path.join(BASE_DIR, "proxy.log")
-PROXY_VERSION = "1.0.0"
+PROXY_VERSION = "1.1.0-gpt62"
 _log_lock = threading.Lock()
 
 
@@ -178,11 +184,20 @@ def rewrite_request(body):
         with _model_lock:
             _last_main_model = model
 
+    # GPT-6.2 replaced the 6.0 entries in the UI; map after background routing.
+    final_model = data.get("model")
+    alias = MODEL_ALIASES.get(final_model)
+    if alias:
+        data["model"] = alias
+        info["model_rewritten"] = alias
+        final_model = alias
+        changed = True
+
     reasoning = data.get("reasoning")
     if isinstance(reasoning, dict):
         original = reasoning.get("effort")
         info["effort"] = original
-        if model in UPGRADE_MODELS and original in UPGRADE_FROM:
+        if final_model in UPGRADE_MODELS and original in UPGRADE_FROM:
             reasoning["effort"] = UPGRADE_TO
             info["effort_rewritten"] = True
             changed = True
