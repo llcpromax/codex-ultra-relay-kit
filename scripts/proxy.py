@@ -54,6 +54,10 @@ MODEL_ALIASES = {
     "gpt-6-sol": "gpt-6.2-sol",
 }
 
+# GPT-6.2 has no "ultra"; use its highest level "max" for the top UI choices.
+MAX_EFFORT_MODELS = {"gpt-6.2-astra", "gpt-6.2-sol"}
+MAX_EFFORT_FROM = {"xhigh", "max", "ultra"}
+
 BACKGROUND_MODELS = {"gpt-6-luna", "gpt-6.1-terra"}
 BACKGROUND_MARKERS = (
     "Generate a concise UI title",
@@ -80,7 +84,7 @@ _last_main_model = read_default_model()
 _model_lock = threading.Lock()
 
 LOG_PATH = os.path.join(BASE_DIR, "proxy.log")
-PROXY_VERSION = "1.1.0-gpt62"
+PROXY_VERSION = "1.2.0-gpt62-max"
 _log_lock = threading.Lock()
 
 
@@ -159,7 +163,7 @@ def decode_body(body, encoding):
 def rewrite_request(body):
     """Follow the last main model for background tasks and upgrade ultra efforts."""
     global _last_main_model
-    info = {"model": None, "effort": None, "model_rewritten": None, "effort_rewritten": False}
+    info = {"model": None, "effort": None, "model_rewritten": None, "effort_rewritten": False, "effort_target": None}
     try:
         data = json.loads(body)
     except Exception:
@@ -197,9 +201,15 @@ def rewrite_request(body):
     if isinstance(reasoning, dict):
         original = reasoning.get("effort")
         info["effort"] = original
-        if final_model in UPGRADE_MODELS and original in UPGRADE_FROM:
+        if final_model in MAX_EFFORT_MODELS and original in MAX_EFFORT_FROM and original != "max":
+            reasoning["effort"] = "max"
+            info["effort_rewritten"] = True
+            info["effort_target"] = "max"
+            changed = True
+        elif final_model in UPGRADE_MODELS and original in UPGRADE_FROM:
             reasoning["effort"] = UPGRADE_TO
             info["effort_rewritten"] = True
+            info["effort_target"] = UPGRADE_TO
             changed = True
 
     if not changed:
@@ -249,7 +259,7 @@ class Handler(BaseHTTPRequestHandler):
             if info["model_rewritten"]:
                 notes.append(f"model {info['model']} -> {info['model_rewritten']}")
             if info["effort_rewritten"]:
-                notes.append(f"effort {info['effort']} -> {UPGRADE_TO}")
+                notes.append(f"effort {info['effort']} -> {info['effort_target'] or UPGRADE_TO}")
             if new_body is not decoded:
                 body = new_body
                 drop_encoding = decoded_ok

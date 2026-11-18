@@ -142,7 +142,7 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 
 所以界面里仍然选 **6 Astra / 6 Sol**，实际请求走的是 6.2；6.1、5.6、Luna 等模型不受影响。
 
-注意：6.2 **不支持 `ultra`**，只支持 `none/minimal/low/medium/high/xhigh/max`。代理对 6.2 不会做 `xhigh/max → ultra` 改写；界面里的 Ultra 发给 6.2 时实际是 `xhigh`，可以正常使用。想在 6.2 上用最高档，可在界面选 **Max**。
+注意：6.2 **不支持 `ultra`**，只支持 `none/minimal/low/medium/high/xhigh/max`。代理会把 6.2 的 `xhigh` / `max` / `ultra` 统一改写成 **`max`**（6.2 的最高档），所以界面里选 **Ultra、Extra High 或 Max**，实际发给 6.2 的都是 `max`；显式发送 `ultra` 也不会再触发 400。
 
 要关闭或修改映射，编辑 `proxy.py` 里的 `MODEL_ALIASES`。
 
