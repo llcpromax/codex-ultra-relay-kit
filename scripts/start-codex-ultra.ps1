@@ -96,7 +96,7 @@ Add-Type -TypeDefinition $code
 $mgr = New-Object ApplicationActivationManager
 $appUserModelId = Get-CodexAumid
 [uint32]$procId = 0
-$hr = $mgr.ActivateApplication($appUserModelId, "--remote-debugging-port=$port", 0, [ref]$procId)
+$hr = $mgr.ActivateApplication($appUserModelId, "--remote-debugging-port=$port --lang=zh-CN", 0, [ref]$procId)
 Log "activate aumid=$appUserModelId hr=$hr pid=$procId"
 
 # --- 3. wait for the renderer target ---
