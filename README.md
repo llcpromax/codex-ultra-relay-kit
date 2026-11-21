@@ -1,6 +1,6 @@
 # Codex Ultra Relay Kit
 
-> 让 Codex 桌面版在第三方 API 中转站上解锁并使用 `ultra` 推理档位的 Windows 一键工具包。
+> 让 Codex 在第三方 API 中转站上稳定使用最高推理档位的 Windows / Linux 工具包。
 
 ---
 
@@ -10,15 +10,15 @@ Codex 桌面版（`OpenAI.Codex` MSIX）的模型选择器里是否出现 **Ultr
 
 于是出现矛盾：
 
-- 你的中转站**实际支持** `ultra`（甚至只接受 `ultra`），
+- 中转站实际只接受到 `max`（显式传 `ultra` 会返回 400），
 - 但客户端因为**账号门禁不通过**，界面上只给到 `xhigh` / `max`，
-- 请求发出去是 `xhigh`，上游返回报错或降级。
+- 想用最高档时，要么界面没有 Ultra，要么请求被上游拒绝。
 
 此外网络不稳 / 后台小任务（生成标题、智能建议、commit message 等）常常使用一个你中转站没有开通的小模型，导致报错。
 
 本工具包用三件事解决这些问题：
 
-1. **本地代理改写**：把 `xhigh` / `max` 在转发前改成 `ultra`；
+1. **本地代理转发**：模型原样转发，仅把中转站不接受的 `ultra` 降级为 `max`；
 2. **门禁注入**：启动时通过 CDP 注入 Statsig 门禁，让 Ultra 出现在模型选择器；
 3. **无感守护**：正常点官方图标启动时自动重启为 Ultra 实例，`config.toml` 被覆盖时自动修复。
 
@@ -36,7 +36,7 @@ Codex 桌面版（`OpenAI.Codex` MSIX）的模型选择器里是否出现 **Ultr
 ┌──────────────────────────┐        ┌────────────────────┐
 │  本地代理 proxy.py        │───────▶│  你的中转站        │
 │  127.0.0.1:8787          │        │  https://.../v1    │
-│  · xhigh/max → ultra     │        └────────────────────┘
+│  · ultra → max 降级      │        └────────────────────┘
 │  · 后台任务跟随主模型     │
 │  · upstream.txt 动态读取  │
 └──────────────────────────┘
@@ -75,10 +75,13 @@ Codex 桌面版（`OpenAI.Codex` MSIX）的模型选择器里是否出现 **Ultr
 - SSE 流式响应逐块透传，错误响应完整写入日志
 - 开机自启（代理 / 启动器 / 守护三项）
 - 桌面快捷方式与隐藏启动（VBS），不弹黑框
+- Linux：纯 Python 代理 + systemd 用户服务（无桌面版门禁注入）
 
 ---
 
 ## 环境要求
+
+### Windows（桌面版）
 
 - Windows 10 / 11（x64 或 arm64）
 - Codex 桌面版已安装（MSIX 包名 `OpenAI.Codex`），并且至少成功登录 / 配置过一次中转站
@@ -86,9 +89,16 @@ Codex 桌面版（`OpenAI.Codex` MSIX）的模型选择器里是否出现 **Ultr
 - PowerShell 5.1（系统自带）
 - 可选：CC Switch（用于切换中转站；它覆盖 `config.toml` 后本工具会自动修复）
 
+### Linux（CLI）
+
+- Ubuntu 20.04+ / Debian 11+（或其他带 systemd 用户会话的发行版）
+- Python 3.8 及以上
+- Codex CLI 已安装，并且 `~/.codex/config.toml` 里已有中转站配置
+- Linux 版只包含本地代理和配置修复，不使用桌面版的 Ultra 门禁注入
+
 ---
 
-## 安装步骤
+## 安装步骤（Windows 桌面版）
 
 ```powershell
 # 1. 进入仓库根目录
@@ -123,7 +133,52 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 
 ---
 
-## 使用方式
+## Linux 安装与使用（Ubuntu / Debian）
+
+Linux 上的 Codex 是 CLI，没有桌面版模型选择器，因此**不需要** Statsig 门禁注入、启动器和守护进程；工具包只保留本地代理与配置修复。
+
+```bash
+git clone https://github.com/llcpromax/codex-ultra-relay-kit.git
+cd codex-ultra-relay-kit
+bash install.sh --upstream "https://your-relay.example.com/v1"
+```
+
+可选参数：
+
+- `--with-catalog`：同时安装 GPT-6.2 模型目录（CLI 通常不需要，直接用 `--model gpt-6.2-astra` 即可）
+- `--no-start`：只注册服务，不立即启动
+
+安装脚本会：
+
+- 把 `proxy.py` / `repair_config.py` 复制到 `~/.codex/relay-proxy/`
+- 写入 `upstream.txt`
+- 把 `config.toml` 当前 provider 的 `base_url` 改为 `http://127.0.0.1:8787`
+- 创建 systemd 用户服务 `codex-relay-proxy` 并设置开机自启
+
+管理与排查：
+
+```bash
+systemctl --user status codex-relay-proxy
+journalctl --user -u codex-relay-proxy -f
+cat ~/.codex/relay-proxy/proxy.log
+```
+
+使用说明：
+
+- Linux CLI 没有 Ultra 选项，直接在 `config.toml` 设置 `model_reasoning_effort = "max"`；即使写成 `ultra`，代理也会降级为 `max`。
+- 换中转站：编辑 `~/.codex/relay-proxy/upstream.txt`，代理会自动读取，无需重启。
+- 如果 CC Switch 之类的工具覆盖了 `config.toml`，重新执行一次 `python3 ~/.codex/relay-proxy/repair_config.py` 即可（Linux 版没有自动守护）。
+
+卸载：
+
+```bash
+bash uninstall.sh                 # 还原 config.toml，保留安装目录
+bash uninstall.sh --remove-files  # 还原并删除安装目录
+```
+
+---
+
+## 使用方式（Windows 桌面版）
 
 **日常启动**：双击桌面的 **Codex Ultra**。它会静默完成：确保代理在跑 → 关闭旧实例 → 修配置 → 带调试端口启动 → 注入门禁。
 
@@ -219,7 +274,7 @@ http://10.0.0.5:3000/openai/v1
 
 ---
 
-## 卸载
+## 卸载（Windows 桌面版）
 
 ```powershell
 # 还原 config.toml，保留安装目录

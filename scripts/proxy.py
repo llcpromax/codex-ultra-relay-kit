@@ -1,12 +1,13 @@
-"""Local relay proxy for Codex desktop.
+"""Local relay proxy for Codex.
 
-Listens on 127.0.0.1:8787, forwards requests to the relay configured in
-upstream.txt, and upgrades the highest UI-selectable reasoning effort
-("xhigh" / "max") to "ultra" for models that support it. Background tasks
-(title generation, suggestions, commit messages, ...) are routed to the last
-main model so they never fail on a model that is not available.
+Listens on 127.0.0.1:8787 and forwards requests to the relay configured in
+upstream.txt. The selected model is passed through unchanged; only an explicit
+"ultra" effort is downgraded to "max" because the relay does not accept it.
+Background tasks (title generation, suggestions, commit messages, ...) are
+routed to the last main model so they never fail on a model that is not
+available.
 
-Everything else is passed through unchanged.
+Runs on Windows, macOS and Linux (Python 3.8+).
 """
 
 import gzip
