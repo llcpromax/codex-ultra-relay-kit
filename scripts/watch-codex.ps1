@@ -71,9 +71,9 @@ while ($true) {
             }
             $launcherRunning = Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" |
                 Where-Object { $_.CommandLine -like '*start-codex-ultra.ps1*' }
-            $stable = ($null -ne $noPortSince -and ((Get-Date) - $noPortSince).TotalSeconds -ge 3)
+            $stable = ($null -ne $noPortSince -and ((Get-Date) - $noPortSince).TotalSeconds -ge 1)
             if ($stable -and -not $listening -and -not $lockExists -and -not $launcherRunning -and ((Get-Date) - $lastAttempt).TotalSeconds -ge 30) {
-                Log "app window without CDP stable for 3s; starting ultra launcher"
+                Log "app window without CDP stable for 1s; starting ultra launcher"
                 $lastAttempt = Get-Date
                 $noPortSince = $null
                 Start-Process -FilePath 'powershell.exe' -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', $launcher -WindowStyle Hidden

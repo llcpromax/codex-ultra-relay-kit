@@ -68,7 +68,7 @@ if ($running) {
     foreach ($p in $running) {
         try { $p.CloseMainWindow() | Out-Null } catch { }
     }
-    for ($i = 0; $i -lt 4; $i++) {
+    for ($i = 0; $i -lt 2; $i++) {
         Start-Sleep -Milliseconds 500
         if (-not (Get-Process ChatGPT, Codex -ErrorAction SilentlyContinue)) { break }
     }
@@ -116,8 +116,8 @@ Log "activate aumid=$appUserModelId hr=$hr pid=$procId"
 
 # --- 3. wait for the renderer target ---
 $target = $null
-for ($i = 0; $i -lt 120; $i++) {
-    Start-Sleep -Milliseconds 500
+for ($i = 0; $i -lt 400; $i++) {
+    Start-Sleep -Milliseconds 150
     try {
         $targets = Invoke-RestMethod "http://127.0.0.1:$port/json" -TimeoutSec 2
         $target = $targets | Where-Object { $_.type -eq 'page' -and $_.url -like 'app://*' } | Select-Object -First 1
@@ -150,10 +150,10 @@ function Eval([string]$expr) {
 
 # --- 5. wait for Statsig client ---
 $ready = $false
-for ($i = 0; $i -lt 120; $i++) {
+for ($i = 0; $i -lt 400; $i++) {
     $resp = Eval "(()=>{const g=window.__STATSIG__;return (g&&g.instances&&Object.keys(g.instances).length)?'ready':'no';})()"
     if ($resp -match '"value":"ready"') { $ready = $true; break }
-    Start-Sleep -Milliseconds 500
+    Start-Sleep -Milliseconds 150
 }
 Log "statsig ready=$ready"
 if (-not $ready) { $ws.Dispose(); throw 'statsig not ready' }
