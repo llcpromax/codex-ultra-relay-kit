@@ -68,12 +68,12 @@ if ($running) {
     foreach ($p in $running) {
         try { $p.CloseMainWindow() | Out-Null } catch { }
     }
-    for ($i = 0; $i -lt 16; $i++) {
+    for ($i = 0; $i -lt 4; $i++) {
         Start-Sleep -Milliseconds 500
         if (-not (Get-Process ChatGPT, Codex -ErrorAction SilentlyContinue)) { break }
     }
     Get-Process ChatGPT, Codex -ErrorAction SilentlyContinue | Stop-Process -Force
-    for ($i = 0; $i -lt 20; $i++) {
+    for ($i = 0; $i -lt 12; $i++) {
         Start-Sleep -Milliseconds 500
         if (-not (Get-Process ChatGPT, Codex -ErrorAction SilentlyContinue)) { break }
     }

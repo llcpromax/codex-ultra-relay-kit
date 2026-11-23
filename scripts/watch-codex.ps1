@@ -45,14 +45,20 @@ while ($true) {
 
     try {
         $app = Get-Process ChatGPT -ErrorAction SilentlyContinue
+        $main = @($app | Where-Object { $_.MainWindowHandle -ne 0 })
         if ($null -ne $app) {
             $listening = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
             if ($listening) {
                 $noPortSince = $null
             }
-            elseif ($null -eq $noPortSince) {
-                $noPortSince = Get-Date
-                Log "app without CDP; waiting for stable state"
+            elseif ($main.Count -gt 0) {
+                if ($null -eq $noPortSince) {
+                    $noPortSince = Get-Date
+                    Log "app window without CDP; waiting for stable state"
+                }
+            }
+            else {
+                $noPortSince = $null
             }
             $lockExists = Test-Path $lock
             if ($lockExists) {
@@ -65,9 +71,9 @@ while ($true) {
             }
             $launcherRunning = Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" |
                 Where-Object { $_.CommandLine -like '*start-codex-ultra.ps1*' }
-            $stable = ($null -ne $noPortSince -and ((Get-Date) - $noPortSince).TotalSeconds -ge 12)
+            $stable = ($null -ne $noPortSince -and ((Get-Date) - $noPortSince).TotalSeconds -ge 3)
             if ($stable -and -not $listening -and -not $lockExists -and -not $launcherRunning -and ((Get-Date) - $lastAttempt).TotalSeconds -ge 30) {
-                Log "app without CDP stable for 12s; starting ultra launcher"
+                Log "app window without CDP stable for 3s; starting ultra launcher"
                 $lastAttempt = Get-Date
                 $noPortSince = $null
                 Start-Process -FilePath 'powershell.exe' -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', $launcher -WindowStyle Hidden
