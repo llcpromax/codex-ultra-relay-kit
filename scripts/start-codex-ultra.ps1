@@ -62,9 +62,24 @@ if (-not $Force -and (Get-NetTCPConnection -LocalPort $port -State Listen -Error
     exit
 }
 
-# --- 1. close any running Codex desktop instance ---
-Get-Process ChatGPT, Codex -ErrorAction SilentlyContinue | Stop-Process -Force
-Start-Sleep -Seconds 2
+# --- 1. close any running Codex desktop instance gracefully ---
+$running = Get-Process ChatGPT, Codex -ErrorAction SilentlyContinue
+if ($running) {
+    foreach ($p in $running) {
+        try { $p.CloseMainWindow() | Out-Null } catch { }
+    }
+    for ($i = 0; $i -lt 16; $i++) {
+        Start-Sleep -Milliseconds 500
+        if (-not (Get-Process ChatGPT, Codex -ErrorAction SilentlyContinue)) { break }
+    }
+    Get-Process ChatGPT, Codex -ErrorAction SilentlyContinue | Stop-Process -Force
+    for ($i = 0; $i -lt 20; $i++) {
+        Start-Sleep -Milliseconds 500
+        if (-not (Get-Process ChatGPT, Codex -ErrorAction SilentlyContinue)) { break }
+    }
+    Log "previous instance closed"
+}
+Start-Sleep -Milliseconds 500
 
 # --- 1b. repair config.toml after closing Codex (avoids file lock) ---
 & $repair -ConfigPath $config *> $null
